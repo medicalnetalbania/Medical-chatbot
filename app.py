@@ -1,13 +1,10 @@
+import os
 from flask import Flask, request, jsonify
 import anthropic
-import gspread
 import requests
-import os
-import json
 
 app = Flask(__name__)
 
-# Ürün kataloğu
 URUN_KATALOGU = """
 ÜRÜN LİSTESİ:
 - Latex Eldiven (Pudrasız): Paket başına 100 adet. Renkler: Beyaz, Mavi. Beden: S, M, L, XL
@@ -23,10 +20,10 @@ SET ÖNERİLERİ:
 - Temel Set: Beyaz eldiven + Beyaz maske + Galoş
 """
 
-SISTEM_PROMPTU = f"""Sen Medikal Almanya'nın Instagram DM satış asistanısın.
+SISTEM_PROMPTU = """Sen Medikal Almanya'nın Instagram DM satış asistanısın.
 Görevin müşteri sorularını yanıtlamak ve ek ürün önererek satışı artırmak.
 
-{URUN_KATALOGU}
+""" + URUN_KATALOGU + """
 
 KURALLARIN:
 1. Her zaman Türkçe yanıt ver
@@ -35,14 +32,14 @@ KURALLARIN:
 4. Sipariş almak istediğinde: isim, telefon ve adres iste
 5. Sipariş tamamlanınca özet ver
 6. Fiyat sorulursa "size özel fiyat için DM'den devam edelim" de
-7. Kısa ve net yanıtlar ver, çok uzun yazma
+7. Kısa ve net yanıtlar ver
 """
+
+konusmalar = {}
 
 def claude_yanit_al(musteri_mesaji, konusma_gecmisi):
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-    
     mesajlar = konusma_gecmisi + [{"role": "user", "content": musteri_mesaji}]
-    
     response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=500,
@@ -52,7 +49,7 @@ def claude_yanit_al(musteri_mesaji, konusma_gecmisi):
     return response.content[0].text
 
 def instagram_mesaj_gonder(alici_id, mesaj):
-    url = f"https://graph.facebook.com/v18.0/me/messages"
+    url = "https://graph.facebook.com/v18.0/me/messages"
     params = {"access_token": os.environ.get("INSTAGRAM_TOKEN")}
     data = {
         "recipient": {"id": alici_id},
@@ -60,23 +57,15 @@ def instagram_mesaj_gonder(alici_id, mesaj):
     }
     requests.post(url, params=params, json=data)
 
-def siparise_kaydet(isim, telefon, urunler):
-    try:
-        gc = gspread.service_account(filename="credentials.json")
-        sh = gc.open("Medikal Almanya Siparişler")
-        ws = sh.sheet1
-        ws.append_row([isim, telefon, urunler])
-    except:
-        pass
-
-konusmalar = {}
-
 @app.route("/webhook", methods=["GET"])
 def webhook_dogrula():
     verify_token = os.environ.get("VERIFY_TOKEN", "medicalnetalbania2025")
-if request.args.get("hub.verify_token") == verify_token:
-        return request.args.get("hub.challenge")
-    return "Hata", 403
+    token = request.args.get("hub.verify_token")
+    challenge = request.args.get("hub.challenge")
+    mode = request.args.get("hub.mode")
+    if mode == "subscribe" and token == verify_token:
+        return challenge, 200
+    return "Forbidden", 403
 
 @app.route("/webhook", methods=["POST"])
 def webhook_al():
@@ -86,20 +75,6 @@ def webhook_al():
         messaging = entry["messaging"][0]
         gonderici_id = messaging["sender"]["id"]
         mesaj = messaging["message"]["text"]
-        
         if gonderici_id not in konusmalar:
             konusmalar[gonderici_id] = []
-        
-        yanit = claude_yanit_al(mesaj, konusmalar[gonderici_id])
-        
-        konusmalar[gonderici_id].append({"role": "user", "content": mesaj})
-        konusmalar[gonderici_id].append({"role": "assistant", "content": yanit})
-        
-        instagram_mesaj_gonder(gonderici_id, yanit)
-    except:
-        pass
-    
-    return jsonify({"status": "ok"})
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+        yanit = claude_yanit_al(mesaj, konusmalar[gonderici
