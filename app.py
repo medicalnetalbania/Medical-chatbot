@@ -77,4 +77,10 @@ def webhook_al():
         mesaj = messaging["message"]["text"]
         if gonderici_id not in konusmalar:
             konusmalar[gonderici_id] = []
-        yanit = claude_yanit_al(mesaj, konusmalar[gonderici
+        yanit = claude_yanit_al(mesaj, konusmalar[gonderici_id])
+        konusmalar[gonderici_id].append({"role": "user", "content": mesaj})
+        konusmalar[gonderici_id].append({"role": "assistant", "content": yanit})
+        instagram_mesaj_gonder(gonderici_id, yanit)
+    except Exception as e:
+        print(f"Hata: {e}")
+    return jsonify({"status": "ok"})
