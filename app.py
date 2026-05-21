@@ -73,7 +73,8 @@ konusmalar = {}
 
 @app.route("/webhook", methods=["GET"])
 def webhook_dogrula():
-    if request.args.get("hub.verify_token") == os.environ.get("VERIFY_TOKEN"):
+    verify_token = os.environ.get("VERIFY_TOKEN", "medicalnetalbania2025")
+if request.args.get("hub.verify_token") == verify_token:
         return request.args.get("hub.challenge")
     return "Hata", 403
 
