@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: medikal-chatbot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: INSTAGRAM_TOKEN
+        sync: false
+      - key: VERIFY_TOKEN
+        value: medikalalmanya2024
